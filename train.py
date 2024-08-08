@@ -5,7 +5,7 @@ from torchvision import datasets, transforms
 import matplotlib.pyplot as plt
 import numpy as np
 import torch.nn as nn
-from muP.model import VAE,VAEConfig
+from model import VAE,VAEConfig
 from utils import get_data_loader
 from tqdm import tqdm
 
@@ -77,7 +77,7 @@ if __name__ == "__main__":
     path = '/Users/ayanfe/Documents/Datasets/Waifus/Train'
     val_path = '/Users/ayanfe/Documents/Datasets/Waifus/Val'
 
-    train_loader = get_data_loader(path, batch_size=64, num_samples=40_000)
+    train_loader = get_data_loader(path, batch_size=64, num_samples=20_000)
     test_loader = get_data_loader(val_path, batch_size=64, num_samples=10_000)
 
     device = "cpu"
