@@ -94,12 +94,12 @@ class ResNetTranspose(nn.Module):
         # Apply LayerNorm after conv1
         out = F.leaky_relu(self.conv1(x))
         out = self.dropout(out)
-        out = F.group_norm(out,4)
+        out = F.group_norm(out,2)
         
         # Apply LayerNorm after conv2
         out = F.leaky_relu(self.conv2(out))
         out = self.dropout(out)
-        out = F.group_norm(out,4)
+        out = F.group_norm(out,2)
         
         out1 = self.skip_conv(x)
         out = F.leaky_relu(self.conv3(out))
