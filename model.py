@@ -44,9 +44,6 @@ class Encoder(nn.Module):
         mu = self.mu(x)
         l_sigma = self.l_sigma(x)
         
-        # Clamping l_sigma for numerical stability
-        #l_sigma_clamped = torch.clamp(l_sigma, min=-10, max=10)
-        
         z = mu + torch.exp(l_sigma / 2) * torch.rand_like(l_sigma)
         
         return mu, l_sigma, z
@@ -68,13 +65,16 @@ class Decoder(nn.Module):
     def _initialize_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                nn.init.normal_(m.weight, 0, 1 / math.sqrt(m.in_channels))
+                if m == self.conv:
+                    # Default initialization with standard deviation of 1
+                    nn.init.normal_(m.weight, 0, 1)
+                else:
+                    nn.init.normal_(m.weight, 0, 1 / math.sqrt(m.in_channels))
                 if m.bias is not None:
                     nn.init.zeros_(m.bias)
 
     def forward(self, z):
         z = self.fres(z)
-        
         z = self.res(z)
         z = self.res1(z)
         z = self.res2(z)
@@ -120,13 +120,6 @@ class VAE(nn.Module):
         img_rec = self.decoder(l_img)
         img_orig = np.transpose(data[-1].cpu().detach().numpy(), (1, 2, 0))
         img_rec = np.transpose(img_rec[-1].cpu().detach().numpy(), (1, 2, 0))
-        mean=[0.7002, 0.6099, 0.6036]
-        std=[0.2195, 0.2234, 0.2097]
-        mean = np.array(mean)
-        std = np.array(std)
-        img_rec = img_rec * std + mean
-        img_rec = np.clip(img_rec, 0, 1)
-        img_rec = (img_rec * 255).astype(np.uint8)
         img_concat = np.concatenate((img_orig, img_rec), axis=1)
         plt.imshow(img_concat)
         plt.axis('off')
@@ -138,6 +131,20 @@ class VAE(nn.Module):
         self.decoder.train()
         self.encoder.train()
 
+    def get_layer_lrs(self):
+        layer_lrs = []
+        for name, module in self.named_modules():
+            if isinstance(module, nn.Conv2d):
+                if name != 'encoder.res' and name != 'decoder.conv':
+                    fan_in = module.weight.size(1) * module.weight.size(2) * module.weight.size(3)
+                    lr = self.learning_rate * (1 / fan_in)
+                else:
+                    lr = self.learning_rate
+
+                layer_lrs.append({'params': module.parameters(), 'lr': lr})
+                
+        return layer_lrs
+    
 class TestEncoder(unittest.TestCase):
     def test_forward(self):
         '''
@@ -147,8 +154,12 @@ class TestEncoder(unittest.TestCase):
         self.assertEqual(mu.shape, (1, 64))
         '''
         model = Decoder(VAEConfig())
-        input_tensor = torch.randn(1, 4, 4, 4)
+        input_tensor = torch.randn(1, 8, 4, 4)
         out = model.forward(input_tensor)
+
+        vae = VAE(VAEConfig())
+        print(vae.get_layer_lrs())
+
         self.assertEqual(out.shape, (1, 3, 32, 32))
 
 if __name__ == "__main__":
